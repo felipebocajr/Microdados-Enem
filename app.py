@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
 import os
 
 # ─── Configuração da Página ──────────────────────────────────────────────────
@@ -89,21 +88,39 @@ PERGUNTAS = {
     20: "O acesso à internet em casa influencia mais o desempenho dos candidatos do Nordeste do que o dos candidatos das demais regiões?",
 }
 
+PERGUNTAS_LABELS = {
+    1:  "Pergunta 1: Evasão por Região",
+    2:  "Pergunta 2: Notas Zero na Redação",
+    3:  "Pergunta 3: Ranking da Redação",
+    4:  "Pergunta 4: Mães com Ensino Superior",
+    5:  "Pergunta 5: Alto Desempenho (>700)",
+    6:  "Pergunta 6: Distribuição por Sexo",
+    7:  "Pergunta 7: Gap de Gênero",
+    8:  "Pergunta 8: Renda, Escola e Desempenho",
+    9:  "Pergunta 9: Redação em Branco vs Violação",
+    10: "Pergunta 10: Defasagem por Área",
+    11: "Pergunta 11: Escolas Urbanas vs Rurais",
+    12: "Pergunta 12: Desempenho Crítico (<400)",
+    13: "Pergunta 13: Ausência: 1º vs 2º Dia",
+    14: "Pergunta 14: Treineiros",
+    15: "Pergunta 15: Inglês vs Espanhol",
+    16: "Pergunta 16: Candidatos Indígenas",
+    17: "Pergunta 17: Nota Máxima na Redação",
+    18: "Pergunta 18: Desempenho por Idade",
+    19: "Pergunta 19: Idade da Elite (>700)",
+    20: "Pergunta 20: Acesso à Internet",
+}
+
 
 # ─── Carregamento de Dados ───────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_data():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'MICRODADOS_ENEM_2022.csv')
-    dtypes = {c: 'category' for c in ['SG_UF_PROVA', 'TP_SEXO', 'Q002', 'Q006', 'Q025']}
-    df = pd.read_csv(path, sep=';', encoding='latin-1', usecols=COLS, dtype=dtypes)
+                        'microdados_enem_2022.parquet')
+    df = pd.read_parquet(path)
 
-    for c in ['NU_NOTA_CN', 'NU_NOTA_CH', 'NU_NOTA_LC', 'NU_NOTA_MT', 'NU_NOTA_REDACAO']:
-        df[c] = pd.to_numeric(df[c], errors='coerce')
-    for c in ['TP_PRESENCA_CN', 'TP_PRESENCA_CH', 'TP_PRESENCA_LC', 'TP_PRESENCA_MT',
-              'TP_STATUS_REDACAO', 'TP_FAIXA_ETARIA', 'TP_ESCOLA', 'IN_TREINEIRO',
-              'TP_LINGUA', 'TP_LOCALIZACAO_ESC', 'TP_COR_RACA']:
-        df[c] = pd.to_numeric(df[c], errors='coerce')
+    for c in ['SG_UF_PROVA', 'TP_SEXO', 'Q002', 'Q006', 'Q025']:
+        df[c] = df[c].astype('category')
 
     df['REGIAO'] = df['SG_UF_PROVA'].map(UF_REGIAO)
     df['IS_NE'] = df['REGIAO'] == 'Nordeste'
@@ -577,6 +594,316 @@ FUNCOES = {
 }
 
 
+# ─── Tab: Contexto ─────────────────────────────────────────────────────────
+def _card(icon, title, body):
+    st.markdown(f"""
+    <div style="
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.5rem 1.8rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    ">
+        <div style="display: flex; align-items: flex-start; gap: 1rem;">
+            <div style="font-size: 1.8rem; line-height: 1;">{icon}</div>
+            <div>
+                <h3 style="margin: 0 0 0.5rem 0; color: #1a3a5c;">{title}</h3>
+                <div style="color: #2c3e50; line-height: 1.7; font-size: 1rem;">{body}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def tab_contexto():
+    st.markdown("""
+    <div style="margin-bottom: 2rem;">
+        <h1 style="color: #1a3a5c; margin-bottom: 0.3rem;">📖 Contexto da Análise</h1>
+        <div style="background: #f0f4f8; border-radius: 8px; padding: 0.8rem 1.2rem; color: #34495e; font-size: 1rem;">
+            Por que comparar o Nordeste com o restante do Brasil nos microdados do ENEM 2022
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _card(
+        "🎯",
+        "Por que esta análise importa?",
+        """
+        O <strong>ENEM</strong> (Exame Nacional do Ensino Médio) é a principal porta de entrada para o
+        ensino superior no Brasil, com mais de <strong>3 milhões de inscritos</strong> a cada edição.
+        Universidades federais, programas como <strong>Prouni</strong> e <strong>FIES</strong> utilizam a nota do
+        exame como critério de seleção — o que torna o ENEM um instrumento decisivo na
+        trajetória de milhões de jovens brasileiros.
+        """
+    )
+
+    _card(
+        "🌎",
+        "A questão regional",
+        """
+        O Brasil convive com <strong>desigualdades regionais históricas</strong>. O Nordeste, em
+        particular, concentra indicadores socioeconômicos abaixo da média nacional em
+        dimensões como renda <em>per capita</em>, acesso a saneamento e infraestrutura escolar.<br><br>
+        <em>Essas disparidades estruturais se refletem nos resultados educacionais?</em>
+        """
+    )
+
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #1a3a5c 0%, #1e5799 100%);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        color: #ffffff;
+    ">
+        <h3 style="margin: 0 0 0.8rem 0; color: #ffffff;">📋 Dimensões analisadas</h3>
+        <p style="margin-bottom: 1rem; opacity: 0.9; font-size: 1rem;">
+            Esta análise compara o desempenho dos candidatos nordestinos com o <strong>restante do
+            Brasil</strong> (as demais 4 regiões somadas) em <strong>20 dimensões</strong> diferentes:
+        </p>
+        <table style="width: 100%; border-collapse: separate; border-spacing: 0.5rem;">
+            <tr>
+                <td style="background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.8rem 1rem; width: 50%;">
+                    <span style="font-weight: 700;">👥 Presença e evasão</span><br>
+                    <span style="opacity: 0.85; font-size: 0.9rem;">quem falta mais?</span>
+                </td>
+                <td style="background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.8rem 1rem; width: 50%;">
+                    <span style="font-weight: 700;">📚 Desempenho por área</span><br>
+                    <span style="opacity: 0.85; font-size: 0.9rem;">em qual disciplina a defasagem é maior?</span>
+                </td>
+            </tr>
+            <tr>
+                <td style="background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.8rem 1rem;">
+                    <span style="font-weight: 700;">🏦 Perfil socioeconômico</span><br>
+                    <span style="opacity: 0.85; font-size: 0.9rem;">renda, escolaridade dos pais e tipo de escola</span>
+                </td>
+                <td style="background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.8rem 1rem;">
+                    <span style="font-weight: 700;">👤 Fatores demográficos</span><br>
+                    <span style="opacity: 0.85; font-size: 0.9rem;">sexo, idade, localização e etnia</span>
+                </td>
+            </tr>
+            <tr>
+                <td style="background: rgba(255,255,255,0.12); border-radius: 8px; padding: 0.8rem 1rem;">
+                    <span style="font-weight: 700;">🌐 Acesso a recursos</span><br>
+                    <span style="opacity: 0.85; font-size: 0.9rem;">internet em casa, idioma estrangeiro</span>
+                </td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _card(
+        "🔍",
+        "O que esperamos encontrar",
+        """
+        A hipótese é que as <strong>desigualdades estruturais</strong> entre o Nordeste e as demais
+        regiões se manifestam nos microdados do ENEM — mas <strong>não de forma uniforme</strong>.<br><br>
+        Algumas defasagens podem ser maiores do que o esperado em áreas específicas,
+        enquanto em outras o Nordeste pode surpreender positivamente. O objetivo é
+        <strong>quantificar</strong> essas diferenças para informar políticas públicas baseadas em
+        evidência.
+        """
+    )
+
+# ─── Tab: Tratamento de Dados ──────────────────────────────────────────────
+def _etapa_card(num, titulo, descricao, motivo, icone):
+    st.markdown(f"""
+    <div style="
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.3rem 1.8rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        display: flex;
+        align-items: flex-start;
+        gap: 1.2rem;
+    ">
+        <div style="
+            background: {'#D35400' if num == 7 else '#1a3a5c'};
+            color: #ffffff;
+            border-radius: 50%;
+            width: 2.4rem;
+            height: 2.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        ">{num}</div>
+        <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+                <span style="font-size: 1.15rem;">{icone}</span>
+                <h3 style="margin: 0; color: #1a3a5c; font-size: 1.1rem;">{titulo}</h3>
+            </div>
+            <p style="color: #2c3e50; margin: 0 0 0.5rem 0; line-height: 1.6;">{descricao}</p>
+            <div style="
+                background: #f0f4f8;
+                border-radius: 6px;
+                padding: 0.5rem 0.9rem;
+                font-size: 0.88rem;
+                color: #34495e;
+                display: inline-block;
+            ">
+                💡 {motivo}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def tab_tratamento():
+    st.markdown("""
+    <div style="margin-bottom: 2rem;">
+        <h1 style="color: #1a3a5c; margin-bottom: 0.3rem;">⚙️ Pipeline de Tratamento dos Dados</h1>
+        <div style="background: #f0f4f8; border-radius: 8px; padding: 0.8rem 1.2rem; color: #34495e; font-size: 1rem;">
+            Todas as transformações aplicadas dos microdados brutos até o dataset final
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        border-radius: 12px;
+        padding: 1.2rem 1.8rem;
+        margin-bottom: 1.8rem;
+        color: #ffffff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+    ">
+        <div><strong>📄 Arquivo original:</strong> CSV · ~1,5 GB · 76 colunas · 3.476.105 linhas</div>
+        <div><strong>📦 Arquivo final:</strong> Parquet · ~36 MB · 27 colunas</div>
+        <div style="
+            background: #27AE60;
+            padding: 0.25rem 0.9rem;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        ">⬇ 42× menor</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _etapa_card(1,
+        "Seleção de colunas",
+        "Das 76 colunas originais, selecionamos <strong>21</strong> relevantes para as perguntas desta análise.",
+        "Reduzir o consumo de memória (~441 MB → menos no carregamento) e manter apenas variáveis diretamente ligadas às hipóteses investigadas.",
+        "📑")
+
+    _etapa_card(2,
+        "Encoding Latin-1",
+        "O arquivo original utiliza <code>encoding='latin-1'</code> (ISO-8859-1).",
+        "Arquivos governamentais brasileiros frequentemente usam essa codificação para suportar caracteres acentuados como <strong>ç</strong>, <strong>ã</strong>, <strong>õ</strong>.",
+        "🔤")
+
+    _etapa_card(3,
+        "Separador ponto-e-vírgula",
+        "O CSV usa <code>;</code> como delimitador (<code>sep=';'</code>).",
+        "Padrão adotado pelo INEP na divulgação de microdados — evita conflitos com vírgulas decimais nos valores numéricos.",
+        "🔀")
+
+    _etapa_card(4,
+        "Conversão numérica",
+        "Colunas como <code>NU_NOTA_CN</code>, <code>TP_PRESENCA_CN</code>, <code>TP_FAIXA_ETARIA</code> etc. vêm como texto no CSV. Aplicamos <code>pd.to_numeric(..., errors='coerce')</code> para convertê-las a <code>int64</code>/<code>float64</code>.",
+        "Permitir cálculos estatísticos (média, soma) e filtros numéricos. Valores inválidos são convertidos para <strong>NaN</strong>.",
+        "🔢")
+
+    _etapa_card(5,
+        "Colunas categóricas",
+        "As colunas <code>SG_UF_PROVA</code>, <code>TP_SEXO</code>, <code>Q002</code>, <code>Q006</code> e <code>Q025</code> são convertidas para o dtype <code>category</code> do Pandas.",
+        "Colunas com baixa cardinalidade (poucos valores únicos) ocupam menos memória como categorias — especialmente relevante num dataset de 3,5M de linhas.",
+        "🏷️")
+
+    # Etapa 6 — colunas derivadas com tabela estilizada
+    st.markdown(f"""
+    <div style="
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.3rem 1.8rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        display: flex;
+        align-items: flex-start;
+        gap: 1.2rem;
+    ">
+        <div style="
+            background: #1a3a5c;
+            color: #ffffff;
+            border-radius: 50%;
+            width: 2.4rem;
+            height: 2.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+        ">6</div>
+        <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+                <span style="font-size: 1.15rem;">🧩</span>
+                <h3 style="margin: 0; color: #1a3a5c; font-size: 1.1rem;">Colunas derivadas</h3>
+            </div>
+            <p style="color: #2c3e50; margin: 0 0 0.8rem 0; line-height: 1.6;">
+                Criamos <strong>6 colunas auxiliares</strong> a partir dos dados brutos:
+            </p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.92rem; border-radius: 8px; overflow: hidden;">
+                <thead>
+                    <tr style="background: #1a3a5c; color: #ffffff;">
+                        <th style="padding: 0.5rem 0.8rem; text-align: left;">Coluna</th>
+                        <th style="padding: 0.5rem 0.8rem; text-align: left;">Origem</th>
+                        <th style="padding: 0.5rem 0.8rem; text-align: left;">Propósito</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>REGIAO</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>SG_UF_PROVA</code> → dicionário UF→Região</td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Agrupar candidatos por região geográfica</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>IS_NE</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>REGIAO == 'Nordeste'</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Flag booleana para filtrar o grupo de interesse</td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>GRUPO</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>IS_NE</code> → Nordeste / Demais Regiões</td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Variável categórica usada em todos os gráficos comparativos</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>MEDIA_GERAL</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Média das 5 notas (CN, CH, LC, MT, Redação)</td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Indicador sintético de desempenho</td>
+                    </tr>
+                    <tr style="background: #f8f9fa;">
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;"><code>FAIXA_GRUPO</code></td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Agrupamento de <code>TP_FAIXA_ETARIA</code> em 6 categorias</td>
+                        <td style="padding: 0.5rem 0.8rem; border-bottom: 1px solid #eee;">Facilitar visualização etária</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem 0.8rem;"><code>IDADE_APROX</code></td>
+                        <td style="padding: 0.5rem 0.8rem;"><code>TP_FAIXA_ETARIA</code> → valor central da faixa</td>
+                        <td style="padding: 0.5rem 0.8rem;">Permitir cálculo de idade média</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _etapa_card(7,
+        "Conversão para Parquet",
+        "Após o tratamento, os dados são salvos em formato <strong>Parquet</strong> com compressão <strong>Snappy</strong>. O arquivo final tem <strong>~36 MB</strong>.",
+        "Parquet é um formato colunar otimizado para leitura rápida — o app carrega os dados inteiros em <strong>menos de 1 segundo</strong>, contra 20–30 segundos do CSV original.",
+        "🚀")
+
 # ─── Tab: Visão Geral ────────────────────────────────────────────────────────
 def tab_visao_geral(df):
     st.markdown(
@@ -677,7 +1004,7 @@ def tab_visao_geral(df):
             mode='lines+markers+text',
             text=[f"{v:.1f}" for v in ne_r],
             textposition='top center',
-            textfont=dict(color='#7a1e00', size=12, family='Arial Black'),
+            textfont=dict(color='#000000', size=11, family='Arial'),
         ))
         fig1.add_trace(go.Scatterpolar(
             r=dem_r, theta=cats, fill='toself', name='Demais Regiões',
@@ -687,22 +1014,30 @@ def tab_visao_geral(df):
             mode='lines+markers+text',
             text=[f"{v:.1f}" for v in dem_r],
             textposition='bottom center',
-            textfont=dict(color='#0d3b5e', size=12, family='Arial Black'),
+            textfont=dict(color='#000000', size=11, family='Arial'),
         ))
         fig1.update_layout(
-            title='Perfil de Notas por Área — Nordeste vs Demais',
+            template='plotly_white',
+            title=dict(
+                text='Perfil de Notas por Área — Nordeste vs Demais',
+                font=dict(color='#2c3e50', size=16),
+            ),
             polar=dict(
-                bgcolor='#f8f8f8',
+                bgcolor='#fafafa',
                 radialaxis=dict(
                     visible=True,
                     range=[r_min, r_max],
-                    tickfont=dict(color='#333333', size=10),
-                    gridcolor='#cccccc',
+                    tickfont=dict(color='#444444', size=10),
+                    gridcolor='#dddddd',
                 ),
-                angularaxis=dict(tickfont=dict(color='#111111', size=11)),
+                angularaxis=dict(tickfont=dict(color='#2c3e50', size=11)),
             ),
-            paper_bgcolor='white',
-            legend=dict(orientation='h', y=-0.18),
+            paper_bgcolor='#ffffff',
+            plot_bgcolor='#ffffff',
+            legend=dict(
+                orientation='h', y=-0.18,
+                font=dict(color='#2c3e50'),
+            ),
             height=470,
         )
         st.plotly_chart(fig1, use_container_width=True)
@@ -866,29 +1201,43 @@ def main():
     with st.spinner("Carregando microdados (~3,5 milhões de registros)…"):
         df = load_data()
 
-    st.sidebar.title("Navegação")
+    st.sidebar.title("Perguntas")
     st.sidebar.caption("Fonte: INEP — Microdados ENEM 2022")
+    PERGUNTA_OPTIONS = ["Visão Geral"] + [PERGUNTAS_LABELS[i] for i in range(1, 21)]
+    escolha_pergunta = st.sidebar.radio(
+        "Selecione uma pergunta para analisar:",
+        PERGUNTA_OPTIONS,
+        label_visibility="collapsed",
+    )
 
-    # ── 21 abas: Visão Geral + 20 perguntas ──────────────────────────────────
-    nomes_abas = ["🏠 Visão Geral"] + [f"P{i}" for i in range(1, 21)]
-    tabs = st.tabs(nomes_abas)
-
-    with tabs[0]:
-        tab_visao_geral(df)
-
+    # Pergunta selecionada na sidebar tem prioridade sobre as tabs
+    pergunta_idx = None
     for i in range(1, 21):
-        with tabs[i]:
-            st.markdown(
-                f'<div class="pergunta-box">'
-                f'<div class="pergunta-num">Pergunta {i}</div>'
-                f'{PERGUNTAS[i]}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            with st.spinner("Gerando gráfico…"):
-                fig, insight = FUNCOES[i](df)
-            st.plotly_chart(fig, use_container_width=True)
-            st.success(insight)
+        if escolha_pergunta == PERGUNTAS_LABELS[i]:
+            pergunta_idx = i
+            break
+
+    if pergunta_idx is not None:
+        st.markdown(
+            f'<div class="pergunta-box">'
+            f'<div class="pergunta-num">Pergunta {pergunta_idx}</div>'
+            f'{PERGUNTAS[pergunta_idx]}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        with st.spinner("Gerando gráfico…"):
+            fig, insight = FUNCOES[pergunta_idx](df)
+        st.plotly_chart(fig, use_container_width=True)
+        st.success(insight)
+    else:
+        NAV_OPTIONS = ["Contexto", "Dashboard", "Tratamento de Dados"]
+        tabs = st.tabs(NAV_OPTIONS)
+        with tabs[0]:
+            tab_contexto()
+        with tabs[1]:
+            tab_visao_geral(df)
+        with tabs[2]:
+            tab_tratamento()
 
 
 if __name__ == '__main__':
