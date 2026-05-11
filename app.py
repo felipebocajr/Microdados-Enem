@@ -1014,17 +1014,17 @@ def tab_visao_geral(df):
 
     # ── Filtros ───────────────────────────────────────────────────────────────
     sexo_map = {'M': 'Masculino', 'F': 'Feminino'}
-    cor_raca_map = {0: 'Nao declarado', 1: 'Branca', 2: 'Preta',
-                    3: 'Parda', 4: 'Amarela', 5: 'Indigena'}
+    cor_raca_map = {0: 'Não declarado', 1: 'Branca', 2: 'Preta',
+                    3: 'Parda', 4: 'Amarela', 5: 'Indígena'}
     loc_esc_map = {1: 'Urbana', 2: 'Rural'}
     treineiro_map = {0: 'Regular', 1: 'Treineiro'}
-    escola_map = {1: 'Nao respondeu', 2: 'Publica', 3: 'Privada'}
+    escola_map = {1: 'Não respondeu', 2: 'Pública', 3: 'Privada'}
     faixas_disp = ['<17', '17-18', '19-21', '22-25', '26-30', '31+']
 
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
         sexos_sel = st.multiselect(
-            "Genero", options=sorted(sexo_map.values()), default=list(sexo_map.values()), key="vg_sexo"
+            "Gênero", options=sorted(sexo_map.values()), default=list(sexo_map.values()), key="vg_sexo"
         )
     with col_f2:
         escolas_sel = st.multiselect(
@@ -1032,17 +1032,17 @@ def tab_visao_geral(df):
         )
     with col_f3:
         faixas_sel = st.multiselect(
-            "Faixa Etaria", options=faixas_disp, default=faixas_disp, key="vg_faixa"
+            "Faixa Etária", options=faixas_disp, default=faixas_disp, key="vg_faixa"
         )
 
     col_f4, col_f5, col_f6 = st.columns(3)
     with col_f4:
         cor_raca_sel = st.multiselect(
-            "Cor / Raca", options=sorted(cor_raca_map.values()), default=list(cor_raca_map.values()), key="vg_cor_raca"
+            "Cor / Raça", options=sorted(cor_raca_map.values()), default=list(cor_raca_map.values()), key="vg_cor_raca"
         )
     with col_f5:
         loc_esc_sel = st.multiselect(
-            "Localizacao da Escola", options=sorted(loc_esc_map.values()), default=list(loc_esc_map.values()), key="vg_loc_esc"
+            "Localização da Escola", options=sorted(loc_esc_map.values()), default=list(loc_esc_map.values()), key="vg_loc_esc"
         )
     with col_f6:
         treineiro_sel = st.multiselect(
