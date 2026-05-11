@@ -142,15 +142,26 @@ def load_data():
     for c in ['SG_UF_PROVA', 'TP_SEXO', 'Q002', 'Q006', 'Q025']:
         df[c] = df[c].astype('category')
 
-    df['REGIAO'] = df['SG_UF_PROVA'].map(UF_REGIAO)
+    # Downcast floats (0–1000 range) e ints pequenos para reduzir memoria (~659 → ~280 MB)
+    float_cols = ['NU_NOTA_CN', 'NU_NOTA_CH', 'NU_NOTA_LC', 'NU_NOTA_MT', 'NU_NOTA_REDACAO']
+    for c in float_cols:
+        df[c] = pd.to_numeric(df[c], downcast='float')
+
+    int_cols = ['TP_PRESENCA_CN', 'TP_PRESENCA_CH', 'TP_PRESENCA_LC', 'TP_PRESENCA_MT',
+                'TP_FAIXA_ETARIA', 'TP_COR_RACA', 'TP_ESCOLA',
+                'IN_TREINEIRO', 'TP_LOCALIZACAO_ESC', 'TP_LINGUA', 'TP_STATUS_REDACAO']
+    for c in int_cols:
+        df[c] = pd.to_numeric(df[c], downcast='integer')
+
+    df['REGIAO'] = df['SG_UF_PROVA'].map(UF_REGIAO).astype('category')
     df['IS_NE'] = df['REGIAO'] == 'Nordeste'
-    df['GRUPO'] = df['IS_NE'].map({True: 'Nordeste', False: 'Demais Regiões'})
+    df['GRUPO'] = df['IS_NE'].map({True: 'Nordeste', False: 'Demais Regiões'}).astype('category')
 
-    notas = df[['NU_NOTA_CN', 'NU_NOTA_CH', 'NU_NOTA_LC', 'NU_NOTA_MT', 'NU_NOTA_REDACAO']]
-    df['MEDIA_GERAL'] = notas.mean(axis=1)
+    notas = df[float_cols]
+    df['MEDIA_GERAL'] = notas.mean(axis=1).astype('float32')
 
-    df['FAIXA_GRUPO'] = df['TP_FAIXA_ETARIA'].map(FAIXA_GRUPO)
-    df['IDADE_APROX'] = df['TP_FAIXA_ETARIA'].map(FAIXA_IDADE)
+    df['FAIXA_GRUPO'] = df['TP_FAIXA_ETARIA'].map(FAIXA_GRUPO).astype('category')
+    df['IDADE_APROX'] = df['TP_FAIXA_ETARIA'].map(FAIXA_IDADE).astype('float32')
     return df
 
 
