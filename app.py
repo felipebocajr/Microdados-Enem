@@ -820,6 +820,61 @@ def tab_tratamento():
     </div>
     """, unsafe_allow_html=True)
 
+    # Resumo: contagens brutas vs registradas pelo dashboard
+    df_full = load_data()
+    total_raw = int(df_full.shape[0])
+
+    # remover duplicatas (mesmo critério usado no pipeline)
+    dff_dups = df_full.drop_duplicates()
+
+    # considerado = compareceu a pelo menos 1 das 4 provas objetivas
+    presente = (
+        (dff_dups['TP_PRESENCA_CN'] == 1) |
+        (dff_dups['TP_PRESENCA_CH'] == 1) |
+        (dff_dups['TP_PRESENCA_LC'] == 1) |
+        (dff_dups['TP_PRESENCA_MT'] == 1)
+    )
+    dff_validos = dff_dups[presente]
+    total_validos = int(dff_validos.shape[0])
+    excluidos = total_raw - total_validos
+
+    # contagens por região (mesma ordem de CORES_REGIAO)
+    ordem = list(CORES_REGIAO.keys())
+    raw_by_reg = df_full['REGIAO'].value_counts().reindex(ordem).fillna(0).astype(int)
+    valid_by_reg = dff_validos['REGIAO'].value_counts().reindex(ordem).fillna(0).astype(int)
+
+    def fmt(n): return f"{int(n):,}".replace(",", ".")
+
+    rows = "\n".join(
+        f"<tr>"
+        f"<td style='padding:0.45rem 0.6rem;border-bottom:1px solid #eee'>{r}</td>"
+        f"<td style='padding:0.45rem 0.6rem;border-bottom:1px solid #eee;text-align:right'>{fmt(raw_by_reg.get(r,0))}</td>"
+        f"<td style='padding:0.45rem 0.6rem;border-bottom:1px solid #eee;text-align:right'>{fmt(valid_by_reg.get(r,0))}</td>"
+        f"</tr>"
+        for r in ordem
+    )
+
+    st.markdown(f"""
+    <div style="background:#ffffff;border:1px solid #e9ecef;border-radius:12px;padding:1rem;margin-bottom:1rem;">
+        <h3 style="margin:0 0 0.5rem 0;color:#1a3a5c;">📈 Resumo das contagens usadas no Dashboard</h3>
+        <p style="margin:0 0 0.5rem 0;color:#34495e;">Total de registros no arquivo Parquet: <strong>{fmt(total_raw)}</strong></p>
+        <p style="margin:0 0 0.5rem 0;color:#34495e;">Registros considerados (após <code>drop_duplicates()</code> e filtro de presença): <strong>{fmt(total_validos)}</strong></p>
+        <p style="margin:0 0 0.75rem 0;color:#34495e;">Registros excluídos por ausência completa (ausência nas 4 provas): <strong>{fmt(excluidos)}</strong></p>
+        <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
+            <thead>
+                <tr style="background:#f7f9fb;">
+                    <th style="text-align:left;padding:0.5rem 0.6rem">Região</th>
+                    <th style="text-align:right;padding:0.5rem 0.6rem">Total (bruto)</th>
+                    <th style="text-align:right;padding:0.5rem 0.6rem">Total (considerado)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows}
+            </tbody>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
     _etapa_card(1,
         "Seleção de colunas",
         "Das 76 colunas originais, selecionamos <strong>21</strong> relevantes para as perguntas desta análise.",
@@ -1092,6 +1147,23 @@ def tab_visao_geral(df):
     k5.metric("✅ Presença Plena", f"{presenca_plena:.1f}%")
 
     st.markdown("---")
+
+    # ── Total de Participantes por Região (linha inteira) ────────────────────────
+    tot = dff_validos[dff_validos['REGIAO'].notna()].groupby('REGIAO').size().reset_index(name='TOTAL')
+    ordem_reg = list(CORES_REGIAO.keys())
+    tot = tot.set_index('REGIAO').reindex(ordem_reg).fillna(0).reset_index()
+    tot['TOTAL'] = tot['TOTAL'].astype(int)
+    tot['TEXT'] = tot['TOTAL'].apply(lambda v: f"{int(v):,}".replace(",", "."))
+    fig_tot = px.bar(
+        tot, x='REGIAO', y='TOTAL', color='REGIAO', text='TEXT',
+        color_discrete_map=CORES_REGIAO,
+        labels={'REGIAO': 'Região', 'TOTAL': 'Total de Participantes'},
+        category_orders={'REGIAO': ordem_reg},
+        title='Total de Participantes por Região',
+    )
+    fig_tot.update_traces(textposition='outside')
+    fig_tot.update_layout(height=420, showlegend=False)
+    st.plotly_chart(fig_tot, width='stretch')
 
     # ── Radar: perfil de notas por área — Nordeste vs Demais (sem Redação) ─────
     areas_label = ['Ciências da Natureza', 'Ciências Humanas', 'Linguagens', 'Matemática']
