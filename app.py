@@ -3,7 +3,27 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.io as pio
 import os
+
+# Template personalizado: texto preto em todos os gráficos para legibilidade sobre fundo branco
+# Layout: fonte preta nos eixos/títulos/legendas. Data: fonte preta nos data labels das traces.
+pio.templates["black_font"] = go.layout.Template(
+    layout=dict(
+        font=dict(color="#000000"),
+        title=dict(font=dict(color="#000000")),
+        legend=dict(font=dict(color="#000000")),
+        xaxis=dict(tickfont=dict(color="#000000"), title_font=dict(color="#000000")),
+        yaxis=dict(tickfont=dict(color="#000000"), title_font=dict(color="#000000")),
+    ),
+    data=dict(
+        bar=[dict(textfont=dict(color="#000000"), insidetextfont=dict(color="#000000"),
+                  outsidetextfont=dict(color="#000000"))],
+        scatter=[dict(textfont=dict(color="#000000"))],
+        histogram=[dict(textfont=dict(color="#000000"))],
+    ),
+)
+pio.templates.default = "plotly_white+black_font"
 
 # ─── Configuração da Página ──────────────────────────────────────────────────
 st.set_page_config(
@@ -904,6 +924,76 @@ def tab_tratamento():
         "Parquet é um formato colunar otimizado para leitura rápida — o app carrega os dados inteiros em <strong>menos de 1 segundo</strong>, contra 20–30 segundos do CSV original.",
         "🚀")
 
+    # ── Metodologia dos indicadores do Dashboard ────────────────────────────
+    st.markdown("---")
+    st.markdown("""
+    <div style="margin: 2rem 0 1.2rem 0;">
+        <h2 style="color: #1a3a5c;">📐 Metodologia dos Indicadores do Dashboard</h2>
+        <p style="color: #34495e; font-size: 1rem; line-height: 1.6;">
+            Como cada métrica exibida na aba <strong>Dashboard</strong> é calculada:
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _card(
+        "🧹",
+        "Remoção de duplicatas",
+        """
+        Antes de qualquer cálculo, registros <strong>duplicados</strong> são removidos com
+        <code>drop_duplicates()</code>. Isso garante que candidatos que apareçam mais de uma vez
+        na base não sejam contados múltiplas vezes.
+        """
+    )
+
+    _card(
+        "👥",
+        "Candidatos Presentes",
+        """
+        Um candidato é considerado <strong>presente</strong> se compareceu a <strong>pelo menos uma</strong>
+        das 4 provas objetivas (Ciências da Natureza, Ciências Humanas, Linguagens e Códigos,
+        ou Matemática).<br><br>
+        <strong>Quem faltou apenas 1 dia de prova é contado como presente</strong> — desde que
+        tenha comparecido ao outro dia. Apenas candidatos <em>totalmente ausentes</em>
+        (faltaram os 2 dias, ou seja, todas as 4 provas) são excluídos.
+        """
+    )
+
+    _card(
+        "📊",
+        "Média Geral",
+        """
+        Média aritmética simples das <strong>5 notas</strong>: CN, CH, LC, MT e Redação.<br><br>
+        O Pandas <code>mean(axis=1)</code> com <code>skipna=True</code> (padrão) <strong>ignora valores
+        NaN</strong>. Portanto, se um candidato faltou a uma prova (nota = NaN), a média é
+        calculada apenas sobre as provas que ele <strong>efetivamente realizou</strong>.<br><br>
+        Exemplo: um candidato que fez 3 provas com notas 500, 600 e 700 terá média
+        (500+600+700)/3 = 600, mesmo tendo faltado às outras 2.
+        """
+    )
+
+    _card(
+        "✍️",
+        "Média Redação",
+        """
+        Média simples da coluna <code>NU_NOTA_REDACAO</code>, considerando apenas os candidatos
+        que <strong>fizeram a redação</strong> (nota não-nula e não-NaN). Candidatos ausentes no
+        dia da redação (1º dia) ou com redação anulada entram com NaN e são
+        automaticamente excluídos do cálculo da média.
+        """
+    )
+
+    _card(
+        "✅",
+        "Presença Plena",
+        """
+        Proporção de candidatos que compareceram a <strong>todas as 4 provas objetivas</strong>
+        (CN, CH, LC e MT). Diferente de "Candidatos Presentes", que exige ao menos 1 prova,
+        este indicador exige <strong>presença nos 2 dias</strong> de aplicação.<br><br>
+        A redação não é incluída nessa condição, já que ocorre no mesmo dia de LC — quem
+        compareceu a LC estava presente no dia da redação.
+        """
+    )
+
 # ─── Tab: Visão Geral ────────────────────────────────────────────────────────
 def tab_visao_geral(df):
     st.markdown(
@@ -959,8 +1049,9 @@ def tab_visao_geral(df):
 
     # ── KPIs ──────────────────────────────────────────────────────────────────
     st.markdown("---")
-    k1, k2, k3, k4 = st.columns(4)
+    k1, k2, k3, k4, k5 = st.columns(5)
     total = len(dff_validos)
+    fizeram_redacao = dff_validos['NU_NOTA_REDACAO'].notna().sum()
     media_geral = dff_validos['MEDIA_GERAL'].mean()
     media_red = dff_validos['NU_NOTA_REDACAO'].mean()
     presenca_plena = (
@@ -969,9 +1060,10 @@ def tab_visao_geral(df):
     ).mean() * 100
 
     k1.metric("👥 Candidatos Presentes", f"{total:,}".replace(",", "."))
-    k2.metric("📊 Média Geral", f"{media_geral:.1f}" if pd.notna(media_geral) else "—")
-    k3.metric("✍️ Média Redação", f"{media_red:.1f}" if pd.notna(media_red) else "—")
-    k4.metric("✅ Presença Plena", f"{presenca_plena:.1f}%")
+    k2.metric("✍️ Fizeram a Redação", f"{fizeram_redacao:,}".replace(",", "."))
+    k3.metric("📊 Média Geral", f"{media_geral:.1f}" if pd.notna(media_geral) else "—")
+    k4.metric("📝 Média Redação", f"{media_red:.1f}" if pd.notna(media_red) else "—")
+    k5.metric("✅ Presença Plena", f"{presenca_plena:.1f}%")
 
     st.markdown("---")
 
@@ -1017,30 +1109,29 @@ def tab_visao_geral(df):
             textfont=dict(color='#000000', size=11, family='Arial'),
         ))
         fig1.update_layout(
-            template='plotly_white',
             title=dict(
                 text='Perfil de Notas por Área — Nordeste vs Demais',
-                font=dict(color='#2c3e50', size=16),
+                font=dict(size=16),
             ),
             polar=dict(
                 bgcolor='#fafafa',
                 radialaxis=dict(
                     visible=True,
                     range=[r_min, r_max],
-                    tickfont=dict(color='#444444', size=10),
+                    tickfont=dict(color='#000000', size=10),
                     gridcolor='#dddddd',
                 ),
-                angularaxis=dict(tickfont=dict(color='#2c3e50', size=11)),
+                angularaxis=dict(tickfont=dict(color='#000000', size=11)),
             ),
             paper_bgcolor='#ffffff',
             plot_bgcolor='#ffffff',
             legend=dict(
                 orientation='h', y=-0.18,
-                font=dict(color='#2c3e50'),
+                font=dict(color='#000000'),
             ),
             height=470,
         )
-        st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(fig1, width='stretch')
 
     # ── Média por tipo de escola — Nordeste vs Demais ─────────────────────────
     with col_s2:
@@ -1060,7 +1151,7 @@ def tab_visao_geral(df):
         fig2.update_layout(height=450, legend_title_text='', yaxis=dict(
             range=[0, res_esc['MEDIA_GERAL'].max() * 1.18]
         ))
-        st.plotly_chart(fig2, use_container_width=True)
+        st.plotly_chart(fig2, width='stretch')
 
     # ── Histograma + Boxplot ──────────────────────────────────────────────────
     col_h1, col_h2 = st.columns(2)
@@ -1069,13 +1160,13 @@ def tab_visao_geral(df):
         dff_hist = dff_validos[dff_validos['MEDIA_GERAL'].notna() & dff_validos['GRUPO'].notna()]
         fig3 = px.histogram(
             dff_hist, x='MEDIA_GERAL', color='GRUPO', barmode='overlay', nbins=60,
-            opacity=0.70,
+            opacity=0.70, histnorm='percent',
             color_discrete_map={'Nordeste': COR_NE, 'Demais Regiões': COR_DEMAIS},
             labels={'MEDIA_GERAL': 'Média Geral', 'GRUPO': 'Grupo'},
             title='Distribuição da Média Geral — Nordeste vs Demais',
         )
         fig3.update_layout(height=430, legend_title_text='Grupo')
-        st.plotly_chart(fig3, use_container_width=True)
+        st.plotly_chart(fig3, width='stretch')
 
     with col_h2:
         dff_box = dff_validos[dff_validos['MEDIA_GERAL'].notna() & dff_validos['REGIAO'].notna()]
@@ -1086,7 +1177,7 @@ def tab_visao_geral(df):
             title='Boxplot da Média Geral por Região',
         )
         fig4.update_layout(height=430, showlegend=False)
-        st.plotly_chart(fig4, use_container_width=True)
+        st.plotly_chart(fig4, width='stretch')
 
     # ── Média por Estado (barras horizontais com legenda de região) ───────────
     col_b1, col_b2 = st.columns(2)
@@ -1115,7 +1206,7 @@ def tab_visao_geral(df):
             legend_title_text='Região',
             xaxis=dict(range=[0, uf_med['Média'].max() * 1.12]),
         )
-        st.plotly_chart(fig5, use_container_width=True)
+        st.plotly_chart(fig5, width='stretch')
 
     with col_b2:
         areas = {'Ciências da Natureza': 'NU_NOTA_CN', 'Ciências Humanas': 'NU_NOTA_CH',
@@ -1139,7 +1230,7 @@ def tab_visao_geral(df):
             )
             fig6.update_traces(textposition='outside')
             fig6.update_layout(height=430, legend_title_text='Grupo')
-            st.plotly_chart(fig6, use_container_width=True)
+            st.plotly_chart(fig6, width='stretch')
 
     # ── Média por Faixa Etária (linhas) ───────────────────────────────────────
     ordem_fx = ['<17', '17-18', '19-21', '22-25', '26-30', '31+']
@@ -1147,15 +1238,18 @@ def tab_visao_geral(df):
     res_fx = dff_fx.groupby(['GRUPO', 'FAIXA_GRUPO'])['MEDIA_GERAL'].mean().reset_index()
     res_fx['FAIXA_GRUPO'] = pd.Categorical(res_fx['FAIXA_GRUPO'], categories=ordem_fx, ordered=True)
     res_fx = res_fx.sort_values('FAIXA_GRUPO')
+    res_fx['TEXT'] = res_fx['MEDIA_GERAL'].apply(lambda v: f"{v:.1f}")
 
     fig7 = px.line(
         res_fx, x='FAIXA_GRUPO', y='MEDIA_GERAL', color='GRUPO', markers=True,
+        text='TEXT',
         color_discrete_map={'Nordeste': COR_NE, 'Demais Regiões': COR_DEMAIS},
         labels={'FAIXA_GRUPO': 'Faixa Etária', 'MEDIA_GERAL': 'Média Geral', 'GRUPO': ''},
         title='Média Geral por Faixa Etária — Nordeste vs Demais',
     )
+    fig7.update_traces(textposition='top center')
     fig7.update_layout(height=400, legend_title_text='')
-    st.plotly_chart(fig7, use_container_width=True)
+    st.plotly_chart(fig7, width='stretch')
 
 
 # ─── Layout Principal ────────────────────────────────────────────────────────
@@ -1227,17 +1321,17 @@ def main():
         )
         with st.spinner("Gerando gráfico…"):
             fig, insight = FUNCOES[pergunta_idx](df)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.success(insight)
     else:
-        NAV_OPTIONS = ["Contexto", "Dashboard", "Tratamento de Dados"]
+        NAV_OPTIONS = ["Contexto", "Tratamento de Dados", "Dashboard"]
         tabs = st.tabs(NAV_OPTIONS)
         with tabs[0]:
             tab_contexto()
         with tabs[1]:
-            tab_visao_geral(df)
-        with tabs[2]:
             tab_tratamento()
+        with tabs[2]:
+            tab_visao_geral(df)
 
 
 if __name__ == '__main__':
