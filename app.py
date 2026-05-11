@@ -1013,62 +1013,50 @@ def tab_visao_geral(df):
     )
 
     # ── Filtros ───────────────────────────────────────────────────────────────
+    sexo_map = {'M': 'Masculino', 'F': 'Feminino'}
     cor_raca_map = {0: 'Nao declarado', 1: 'Branca', 2: 'Preta',
                     3: 'Parda', 4: 'Amarela', 5: 'Indigena'}
-    loc_esc_map = {1.0: 'Urbana', 2.0: 'Rural'}
+    loc_esc_map = {1: 'Urbana', 2: 'Rural'}
     treineiro_map = {0: 'Regular', 1: 'Treineiro'}
+    escola_map = {1: 'Nao respondeu', 2: 'Publica', 3: 'Privada'}
+    faixas_disp = ['<17', '17-18', '19-21', '22-25', '26-30', '31+']
 
     col_f1, col_f2, col_f3 = st.columns(3)
-
-    sexo_map = {'M': 'Masculino', 'F': 'Feminino'}
-    sexos_disp = sorted({sexo_map.get(str(s), str(s)) for s in df['TP_SEXO'].dropna().unique()})
     with col_f1:
         sexos_sel = st.multiselect(
-            "Genero", options=sexos_disp, default=sexos_disp, key="vg_sexo"
+            "Genero", options=sorted(sexo_map.values()), default=list(sexo_map.values()), key="vg_sexo"
         )
-
-    escola_map = {1: 'Nao respondeu', 2: 'Publica', 3: 'Privada'}
-    escolas_present = sorted(df['TP_ESCOLA'].dropna().unique().astype(int).tolist())
-    escolas_disp = [escola_map.get(v, str(v)) for v in escolas_present]
     with col_f2:
         escolas_sel = st.multiselect(
-            "Tipo de Escola", options=escolas_disp, default=escolas_disp, key="vg_escola"
+            "Tipo de Escola", options=sorted(escola_map.values()), default=list(escola_map.values()), key="vg_escola"
         )
-
-    faixas_disp = ['<17', '17-18', '19-21', '22-25', '26-30', '31+']
     with col_f3:
         faixas_sel = st.multiselect(
             "Faixa Etaria", options=faixas_disp, default=faixas_disp, key="vg_faixa"
         )
 
     col_f4, col_f5, col_f6 = st.columns(3)
-
-    cor_raca_disp = sorted({cor_raca_map.get(int(v), str(v)) for v in df['TP_COR_RACA'].dropna().unique()})
     with col_f4:
         cor_raca_sel = st.multiselect(
-            "Cor / Raca", options=cor_raca_disp, default=cor_raca_disp, key="vg_cor_raca"
+            "Cor / Raca", options=sorted(cor_raca_map.values()), default=list(cor_raca_map.values()), key="vg_cor_raca"
         )
-
-    loc_esc_disp = sorted({loc_esc_map.get(v, str(v)) for v in df['TP_LOCALIZACAO_ESC'].dropna().unique()})
     with col_f5:
         loc_esc_sel = st.multiselect(
-            "Localizacao da Escola", options=loc_esc_disp, default=loc_esc_disp, key="vg_loc_esc"
+            "Localizacao da Escola", options=sorted(loc_esc_map.values()), default=list(loc_esc_map.values()), key="vg_loc_esc"
         )
-
-    treineiro_disp = sorted({treineiro_map.get(int(v), str(v)) for v in df['IN_TREINEIRO'].dropna().unique()})
     with col_f6:
         treineiro_sel = st.multiselect(
-            "Treineiro", options=treineiro_disp, default=treineiro_disp, key="vg_treineiro"
+            "Treineiro", options=sorted(treineiro_map.values()), default=list(treineiro_map.values()), key="vg_treineiro"
         )
 
     # ── Filtragem ─────────────────────────────────────────────────────────────
     mask = (
-        df['TP_SEXO'].map(lambda x: sexo_map.get(x, x)).isin(sexos_sel)
-        & df['TP_ESCOLA'].map(lambda x: escola_map.get(x, x)).isin(escolas_sel)
-        & df['FAIXA_GRUPO'].isin(faixas_sel)
-        & df['TP_COR_RACA'].map(lambda x: cor_raca_map.get(int(x), str(x))).isin(cor_raca_sel)
-        & df['TP_LOCALIZACAO_ESC'].map(lambda x: loc_esc_map.get(x, str(x))).isin(loc_esc_sel)
-        & df['IN_TREINEIRO'].map(lambda x: treineiro_map.get(int(x), str(x))).isin(treineiro_sel)
+        (df['TP_SEXO'].map(lambda x: sexo_map.get(x, x)).isin(sexos_sel) | df['TP_SEXO'].isna())
+        & (df['TP_ESCOLA'].map(lambda x: escola_map.get(x, x)).isin(escolas_sel) | df['TP_ESCOLA'].isna())
+        & (df['FAIXA_GRUPO'].isin(faixas_sel) | df['FAIXA_GRUPO'].isna())
+        & (df['TP_COR_RACA'].map(lambda x: cor_raca_map.get(x, str(x))).isin(cor_raca_sel) | df['TP_COR_RACA'].isna())
+        & (df['TP_LOCALIZACAO_ESC'].map(lambda x: loc_esc_map.get(x, str(x))).isin(loc_esc_sel) | df['TP_LOCALIZACAO_ESC'].isna())
+        & (df['IN_TREINEIRO'].map(lambda x: treineiro_map.get(x, str(x))).isin(treineiro_sel) | df['IN_TREINEIRO'].isna())
     )
     dff = df[mask]
 
